@@ -1,125 +1,109 @@
+######################################################################
+# Copyright 2016, 2022 John J. Rofrano. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+######################################################################
+
 """
-Controller for routes
+Module: error_handlers
 """
-from flask import jsonify, url_for, abort
+from flask import jsonify
 from service import app
-from service.common import status
-
-COUNTER = {}
+from . import status
 
 
-############################################################
-# Health Endpoint
-############################################################
-@app.route("/health")
-def health():
-    """Health Status"""
-    return jsonify(dict(status="OK")), status.HTTP_200_OK
-
-
-############################################################
-# Index page
-############################################################
-@app.route("/")
-def index():
-    """Returns information about the service"""
-    app.logger.info("Request for Base URL")
-    return jsonify(
-        status=status.HTTP_200_OK,
-        message="Hit Counter Service",
-        version="1.0.0",
-        url=url_for("list_counters", _external=True),
-    )
-
-
-############################################################
-# List counters
-############################################################
-@app.route("/counters", methods=["GET"])
-def list_counters():
-    """Lists all counters"""
-    app.logger.info("Request to list all counters...")
-
-    counters = [
-        dict(name=count[0], counter=count[1]) for count in COUNTER.items()
-    ]
-
-
-    return jsonify(counters)
-
-
-############################################################
-# Create counters
-############################################################
-@app.route("/counters/<name>", methods=["POST"])
-def create_counters(name):
-    """Creates a new counter"""
-    app.logger.info("Request to Create counter: %s...", name)
-
-    if name in COUNTER:
-        abort(status.HTTP_409_CONFLICT, f"Counter {name} already exists")
-
-    COUNTER[name] = 0
-
-    location_url = url_for("read_counters", name=name, _external=True)
+######################################################################
+# Error Handlers
+######################################################################
+@app.errorhandler(status.HTTP_400_BAD_REQUEST)
+def bad_request(error):
+    """Handles bad requests with 400_BAD_REQUEST"""
+    message = str(error)
+    app.logger.warning(message)
     return (
-        jsonify(name=name, counter=0),
-        status.HTTP_201_CREATED,
-        {"Location": location_url},
+        jsonify(
+            status=status.HTTP_400_BAD_REQUEST, error="Bad Request", message=message
+        ),
+        status.HTTP_400_BAD_REQUEST,
     )
 
 
-############################################################
-# Read counters
-############################################################
-@app.route("/counters/<name>", methods=["GET"])
-def read_counters(name):
-    """Reads a single counter"""
-    app.logger.info("Request to Read counter: %s...", name)
-
-    if name not in COUNTER:
-        abort(status.HTTP_404_NOT_FOUND, f"Counter {name} does not exist")
-
-    counter = COUNTER[name]
-    return jsonify(name=name, counter=counter)
+@app.errorhandler(status.HTTP_404_NOT_FOUND)
+def not_found(error):
+    """Handles resources not found with 404_NOT_FOUND"""
+    message = str(error)
+    app.logger.warning(message)
+    return (
+        jsonify(status=status.HTTP_404_NOT_FOUND, error="Not Found", message=message),
+        status.HTTP_404_NOT_FOUND,
+    )
 
 
-############################################################
-# Update counters
-############################################################
-@app.route("/counters/<name>", methods=["PUT"])
-def update_counters(name):
-    """Updates a counter"""
-    app.logger.info("Request to Update counter: %s...", name)
-
-    if name not in COUNTER:
-        abort(status.HTTP_404_NOT_FOUND, f"Counter {name} does not exist")
-
-    COUNTER[name] += 1
-
-    counter = COUNTER[name]
-    return jsonify(name=name, counter=counter)
+@app.errorhandler(status.HTTP_405_METHOD_NOT_ALLOWED)
+def method_not_supported(error):
+    """Handles unsupported HTTP methods with 405_METHOD_NOT_SUPPORTED"""
+    message = str(error)
+    app.logger.warning(message)
+    return (
+        jsonify(
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            error="Method not Allowed",
+            message=message,
+        ),
+        status.HTTP_405_METHOD_NOT_ALLOWED,
+    )
 
 
-############################################################
-# Delete counters
-############################################################
-@app.route("/counters/<name>", methods=["DELETE"])
-def delete_counters(name):
-    """Deletes a counter"""
-    app.logger.info("Request to Delete counter: %s...", name)
+@app.errorhandler(status.HTTP_409_CONFLICT)
+def resource_conflict(error):
+    """Handles resource conflicts with HTTP_409_CONFLICT"""
+    message = str(error)
+    app.logger.warning(message)
+    return (
+        jsonify(
+            status=status.HTTP_409_CONFLICT,
+            error="Conflict",
+            message=message,
+        ),
+        status.HTTP_409_CONFLICT,
+    )
 
-    if name in COUNTER:
-        COUNTER.pop(name)
 
-    return "", status.HTTP_204_NO_CONTENT
+@app.errorhandler(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+def mediatype_not_supported(error):
+    """Handles unsupported media requests with 415_UNSUPPORTED_MEDIA_TYPE"""
+    message = str(error)
+    app.logger.warning(message)
+    return (
+        jsonify(
+            status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            error="Unsupported media type",
+            message=message,
+        ),
+        status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+    )
 
 
-############################################################
-# Utility for testing
-############################################################
-def reset_counters():
-    """Removes all counters while testing"""
-    global COUNTER  # pylint: disable=global-statement
-    if app.testing:
-        COUNTER = {}
+@app.errorhandler(status.HTTP_500_INTERNAL_SERVER_ERROR)
+def internal_server_error(error):
+    """Handles unexpected server error with 500_SERVER_ERROR"""
+    message = str(error)
+    app.logger.error(message)
+    return (
+        jsonify(
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error="Internal Server Error",
+            message=message,
+        ),
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
